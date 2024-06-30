@@ -1,119 +1,75 @@
-import SimpleLightbox from 'simplelightbox';
-import 'simplelightbox/dist/simple-lightbox.min.css';
-import iziToast from 'izitoast';
-import 'izitoast/dist/css/iziToast.min.css';
-import { getImages } from './js/pixabay-api';
-import {
-  imagesTemplate,
-  showLoader,
-  hideLoader,
-  showLoadMore,
-  hideLoadMore,
-  checkEndPages,
-} from './js/render-functions';
-import { refs } from './js/refs';
-import { skipOldElement } from './js/scroll';
+'use strict';
 
-let inputValue = '';
-let currentPage = 1;
-let perPage = 15;
-let maxPage = 1;
+import iziToast from "izitoast";
+import "izitoast/dist/css/iziToast.min.css";
 
-const lightbox = new SimpleLightbox('.gallery a', {
-  captions: true,
-  captionsData: 'alt',
-  captionDelay: 250,
-});
+import SimpleLightbox from "simplelightbox";
+import "simplelightbox/dist/simple-lightbox.min.css";
 
-refs.form.addEventListener('submit', async e => {
-  e.preventDefault();
-  inputValue = e.target.elements.text.value.trim();
-  currentPage = 1;
+import { renderImages } from "./js/render-functions";
+import { getImages } from "./js/pixabay-api";
 
-  hideLoadMore();
+const refs = {
+    imageSearchForm: document.querySelector('.search-form'),
+    imageSearchInput: document.querySelector('.search-input'),
+    submitButton: document.querySelector('.search-btn'),
+    imageList: document.querySelector('.images-list'),
+    loader: document.querySelector('.loader'),
+}
 
-  if (inputValue === '') {
-    refs.gallery.innerHTML = ' ';
-    iziToast.warning({
-      title: 'Warning',
-      message: 'Please, enter the query.',
-      backgroundColor: '#ef4040',
-      layout: 2,
-      position: 'topRight',
-      displayMode: 'once',
-    });
-    refs.form.reset();
-    return;
-  }
+refs.loader.style.display = 'none';
 
-  showLoader();
+let request;
 
-  refs.gallery.innerHTML = ' ';
+refs.imageSearchForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    request = e.target.elements.userData.value;
 
-  try {
-    const data = await getImages(inputValue, currentPage, perPage);
-    maxPage = Math.ceil(data.totalHits / perPage);
-    if (maxPage === 0) {
-      iziToast.error({
-        message:
-          'Sorry, there are no images matching your search query. Please try again!',
-        layout: 2,
-        displayMode: 'once',
-        backgroundColor: '#ef4040',
-        progressBarColor: '#B51B1B',
-        position: 'topRight',
-      });
-      refs.form.reset();
-      hideLoader();
-      return;
+    if (request.trim() === '') {
+        refs.imageList.innerHTML = '';
+        return iziToast.info({
+            message: 'You need to enter search request!',
+            position: 'topRight',
+            transitionIn: 'bounceInDown',
+            transitionOut: 'fadeOutDown',
+        });
     }
+const loader = document.querySelector('.loader')
+        refs.loader.style.display = 'block';
 
-    hideLoader();
-    refs.form.reset();
+    getImages(request)
+        .then(images => {
+            if (images.hits.length === 0) {
+                refs.imageList.innerHTML = '';
+                return iziToast.error({
+                    message: 'Sorry, there are no images matching your search query. Please try again!',
+                    position: 'topRight',
+                    transitionIn: 'bounceInDown',
+                    transitionOut: 'fadeOutDown',
+                });
+            } else {
+                renderImages(images);
 
-    imagesTemplate(data.hits);
-    lightbox.refresh();
-    showLoadMore();
-  } catch (error) {
-    iziToast.error({
-      title: 'Error',
-      message: `${error}`,
-      layout: 2,
-      displayMode: 'once',
-      backgroundColor: '#ef4040',
-      progressBarColor: '#B51B1B',
-      position: 'topRight',
-    });
-  }
-});
-
-refs.loadMoreBtn.addEventListener('click', async () => {
-  hideLoadMore();
-  showLoader();
-
-  try {
-    currentPage++;
-
-    const data = await getImages(inputValue, currentPage, perPage);
-
-    if (data.hits.length !== 0) {
-      imagesTemplate(data.hits);
-      lightbox.refresh();
-      hideLoader();
-    }
-    checkEndPages(currentPage, maxPage);
-    skipOldElement();
-  } catch (error) {
-    refs.gallery.innerHTML = ' ';
-
-    iziToast.error({
-      title: 'Error',
-      message: `${error}`,
-      layout: 2,
-      displayMode: 'once',
-      backgroundColor: '#ef4040',
-      progressBarColor: '#B51B1B',
-      position: 'topRight',
-    });
-  }
-});
+                const lightbox = new SimpleLightbox('.images-list-item a', {
+                        captions: true,
+                        captionSelector: 'img',
+                        captionType: 'attr',
+                        captionsData: 'alt',
+                        captionPosition: 'bottom',
+                        captionDelay: 250,
+                        animationSpeed: 300,
+                        widthRatio: 1,
+                        heightRatio: 0.95,
+                        disableRightClick: true,
+                    });
+                    lightbox.refresh();
+}            
+        })
+        .then(() => refs.loader.style.display = 'none')
+        .catch(err => {
+            console.log(err);
+            refs.loader.style.display = 'none';
+        });
+    e.target.reset();
+})
+ 
